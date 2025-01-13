@@ -35,6 +35,30 @@ export function mergeText<T extends MfmNode>(nodes: ArrayRecursive<((T extends M
 	return dest;
 }
 
+const mayMfmTriggerCharacters = [
+	'*', // bold, etc...
+	'_', // italic, etc...
+	'[', // link, etc...
+	'<', // tag, etc...
+	'>', // quote, etc...
+	'`', // code (block/inline)
+	'~', // strike
+	'@', // mention
+	'#', // hashtag
+	'\\\\', // math, etc... (escaped for regex)
+];
+
+const mayMfmTriggerStrings = [
+	'検索(?:\n|$)', // search
+	'search(?:\n|$)', // search
+	'http', // url
+];
+
+const MFM_TRIGGERS_REGEXP = new RegExp(
+	'(?:[' + mayMfmTriggerCharacters.join('') + ']|' + mayMfmTriggerStrings.join('|') + ')+',
+	'gi' // search MFM is case insensitive
+);
+
 export function stringifyNode(node: MfmNode): string {
 	switch (node.type) {
 		// block
@@ -113,10 +137,9 @@ export function stringifyNode(node: MfmNode): string {
 			return `<plain>\n${ stringifyTree(node.children) }\n</plain>`;
 		}
 		case 'text': {
-			return node.props.text;
+			return node.props.text.replace(MFM_TRIGGERS_REGEXP, '<plain>$&</plain>');
 		}
 	}
-	throw new Error('unknown mfm node');
 }
 
 enum stringifyState {

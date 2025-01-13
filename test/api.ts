@@ -164,6 +164,54 @@ after`;
 			const input2 = '<https://github.com/syuilo/ai>';
 			assert.strictEqual(mfm.toString(mfm.parse(input2)), input2);
 		});
+
+		test('escape text node', () => {
+			function mergeTextNodeIfPossible(nodes: mfm.MfmNode[]): mfm.MfmNode[] {
+				let result: mfm.MfmNode[] = []
+				for (const node of nodes) {
+					if (node.type !== "text") {
+						result.push(node)
+						continue
+					}
+					const lastNode = result.at(-1)
+					if (lastNode === undefined || lastNode.type !== "text") {
+						result.push(node)
+						continue
+					}
+					lastNode.props.text += node.props.text
+				}
+				return result
+			}
+			function convertToTextNodeIfPossible(node: mfm.MfmNode) {
+				if (node.type === "text") return node
+				if (node.type === "unicodeEmoji") {
+					return mfm.TEXT(node.props.emoji)
+				}
+				if (node.type === "emojiCode") {
+					// HACK: 本来は text node がカスタム絵文字もエスケープするべきだが、真面目にやると考えることが多くなって面倒なので一旦ごまかす
+					return mfm.TEXT(mfm.toString(node))
+				}
+				if (node.type === "plain") {
+					return mfm.TEXT(node.children.map(c => c.props.text).join(""))
+				}
+				return node
+			}
+
+			const inputText =
+`before
+<center>
+Hello $[tada everynyan! 🎉]
+
+I'm @ai, A **bot** of misskey! :ai_yay:
+
+https://github.com/syuilo/ai
+</center>
+after`;
+			const inputAST = mfm.TEXT(inputText)
+			const reparsedAST = mfm.parse(mfm.toString(inputAST)).map(convertToTextNodeIfPossible)
+			const mergedAfterReparsedAST = mergeTextNodeIfPossible(reparsedAST)
+			assert.deepStrictEqual(mergedAfterReparsedAST, [inputAST])
+		});
 	});
 
 	describe('inspect', () => {
